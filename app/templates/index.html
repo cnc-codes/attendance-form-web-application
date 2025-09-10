@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form Absensi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Form Absensi</h1>
+    <form action="/" method="post">
+        <label for="nama">Nama:</label>
+        <input type="text" id="nama" name="nama" required><br><br>
+
+        <label for="nim">NIM:</label>
+        <input type="text" id="nim" name="nim" required><br><br>
+
+        <label for="mata_kuliah">Mata Kuliah:</label>
+        <input type="text" id="mata_kuliah" name="mata_kuliah" required><br><br>
+
+        <label for="jurusan">Jurusan:</label>
+        <input type="text" id="jurusan" name="jurusan" required><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>
