@@ -1,4 +1,3 @@
-# Workflow ini akan melakukan build dan testing terhadap development app.
 name: Dev Testing
 
 on:
@@ -7,13 +6,16 @@ on:
 
 jobs:
   build-testing:
-    name: Build and Testing
+    name: Build and Test
     runs-on: ubuntu-latest
     environment: dev
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v2
-      
+
+      # 2️⃣ Create .env file from secrets & vars
       - name: Create .env file
         run: |
           echo "POSTGRES_USER=${{ secrets.DB_USER }}" > .env
@@ -22,15 +24,31 @@ jobs:
           echo "POSTGRES_HOST=${{ secrets.DB_HOST }}" >> .env
           echo "POSTGRES_PORT=${{ secrets.DB_PORT }}" >> .env
 
-      - name: Build and Run Container
+      # 3️⃣ Build and start containers
+      - name: Build and Run Containers
         run: |
           sudo docker compose up database app-dev --build --detach
 
-      - name: Hit Endpoint
+      # 4️⃣ Wait for app-dev server to be ready using retry loop
+      - name: Wait for app-dev server
         run: |
-          sleep 20
-          curl http://localhost:5002
-          
-      - name: Testing
+          for i in {1..10}; do
+            if curl -f http://localhost:5002; then
+              echo "Server is up!"
+              break
+            else
+              echo "Waiting for server... ($i/10)"
+              sleep 10
+            fi
+          done
+
+      # 5️⃣ Run tests
+      - name: Run Tests
         run: |
           python3 testing/test.py
+
+      # 6️⃣ (Optional) Stop containers after testing
+      - name: Stop Containers
+        if: always()
+        run: |
+          sudo docker compose down
