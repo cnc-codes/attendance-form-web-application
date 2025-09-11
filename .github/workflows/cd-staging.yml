@@ -1,4 +1,4 @@
-name: Deploy Staging
+name: Deploy Staging 🚀
 
 on:
   push:
@@ -11,6 +11,7 @@ jobs:
     environment: staging
 
     steps:
+      # 1️⃣ Execute deployment on remote server via SSH
       - name: Execute deployment command
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -21,15 +22,16 @@ jobs:
           POSTGRES_DB: ${{ vars.DB_DBNAME }}
           POSTGRES_HOST: ${{ secrets.DB_HOST }}
           POSTGRES_PORT: ${{ secrets.DB_PORT }}
-
+          APP_HOST: localhost
+          APP_PORT: 5001
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER_NAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: APP_PATH_STAGING, GIT_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT
+          envs: APP_PATH_STAGING, GIT_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT, APP_HOST, APP_PORT
           script: |
-
-            if [[ -d ${APP_PATH_STAGING}" ]]; then 
+            # Clone or update repo
+            if [[ -d "${APP_PATH_STAGING}" ]]; then
               cd $APP_PATH_STAGING
               sudo docker compose down
               git pull --rebase
@@ -39,17 +41,38 @@ jobs:
               cd $APP_PATH_STAGING
             fi
 
-            # If there are any envars update
+            # Update .env file
             echo "POSTGRES_USER=$POSTGRES_USER" > .env
             echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
             echo "POSTGRES_DB=$POSTGRES_DB" >> .env
             echo "POSTGRES_HOST=$POSTGRES_HOST" >> .env
             echo "POSTGRES_PORT=$POSTGRES_PORT" >> .env
+            echo "APP_HOST=$APP_HOST" >> .env
+            echo "APP_PORT=$APP_PORT" >> .env
 
-            # Run app
+            # Build and run container
             sudo docker compose up app-staging --build --detach
-      
-      - name: Hit Endpoint
+
+            # Wait for server to be ready
+            for i in {1..20}; do
+              if sudo docker exec app-staging curl -f http://localhost:5000; then
+                echo "Staging server is up!"
+                break
+              else
+                echo "Waiting for server... ($i/20)"
+                sleep 10
+              fi
+            done
+
+      # 2️⃣ Hit endpoint from GitHub Actions runner (optional)
+      - name: Hit Staging Endpoint
         run: |
-          sleep 20
-          curl ${{ secrets.STAGING_URL }}
+          for i in {1..20}; do
+            if curl -f ${{ secrets.STAGING_URL }}; then
+              echo "Staging endpoint reachable!"
+              break
+            else
+              echo "Waiting for staging endpoint... ($i/20)"
+              sleep 10
+            fi
+          done
