@@ -1,4 +1,4 @@
-name: Deploy Production
+name: Deploy Production 🚀
 
 on:
   release:
@@ -11,6 +11,7 @@ jobs:
     environment: production
 
     steps:
+      # 1️⃣ Execute deployment on remote server via SSH
       - name: Execute deployment command
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -25,16 +26,18 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           APP_NAME: ${{ vars.APP_NAME }}
           APP_TAG: ${{ github.event.release.tag_name }}
-
+          APP_HOST: localhost
+          APP_PORT: 5000
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER_NAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: APP_PATH_PROD, GIT_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, APP_NAME, APP_TAG
+          envs: APP_PATH_PROD, GIT_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, APP_NAME, APP_TAG, APP_HOST, APP_PORT
           script: |
-
+            # Login Docker Hub
             sudo docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
 
+            # Clone or update repo
             if [[ -d "${APP_PATH_PROD}" ]]; then 
               cd $APP_PATH_PROD
               sudo docker compose down
@@ -42,10 +45,10 @@ jobs:
             else
               ssh-keyscan github.com > ~/.ssh/known_hosts
               git clone $GIT_URL $APP_PATH_PROD
-              cd /home/ubuntu/$APP_PATH_PROD
+              cd $APP_PATH_PROD
             fi
 
-            # If there are any envars update
+            # Update .env file
             echo "POSTGRES_USER=$POSTGRES_USER" > .env
             echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
             echo "POSTGRES_DB=$POSTGRES_DB" >> .env
@@ -53,11 +56,32 @@ jobs:
             echo "POSTGRES_PORT=$POSTGRES_PORT" >> .env
             echo "APP_IMAGE=${DOCKERHUB_USERNAME}/${APP_NAME}" >> .env
             echo "APP_TAG=$APP_TAG" >> .env
+            echo "APP_HOST=$APP_HOST" >> .env
+            echo "APP_PORT=$APP_PORT" >> .env
 
-            # Run app
+            # Build and run container
             sudo docker compose up app-prod --build --detach
 
-      - name: Hit Endpoint
+            # Wait for server to be ready
+            for i in {1..20}; do
+              if sudo docker exec app-prod curl -f http://localhost:5000; then
+                echo "Production server is up!"
+                break
+              else
+                echo "Waiting for production server... ($i/20)"
+                sleep 10
+              fi
+            done
+
+      # 2️⃣ Hit endpoint from GitHub Actions runner (optional)
+      - name: Hit Production Endpoint
         run: |
-          sleep 20
-          curl ${{ secrets.PROD_URL }}
+          for i in {1..20}; do
+            if curl -f ${{ secrets.PROD_URL }}; then
+              echo "Production endpoint reachable!"
+              break
+            else
+              echo "Waiting for production endpoint... ($i/20)"
+              sleep 10
+            fi
+          done
