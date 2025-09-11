@@ -23,21 +23,22 @@ jobs:
           echo "POSTGRES_DB=${{ vars.DB_DBNAME }}" >> .env
           echo "POSTGRES_HOST=${{ secrets.DB_HOST }}" >> .env
           echo "POSTGRES_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "APP_PORT=5000" >> .env
 
       # 3️⃣ Build and start containers
       - name: Build and Run Containers
         run: |
           sudo docker compose up database app-dev --build --detach
 
-      # 4️⃣ Wait for app-dev server to be ready using retry loop
+      # 4️⃣ Wait for app-dev server to be ready inside container
       - name: Wait for app-dev server
         run: |
-          for i in {1..10}; do
-            if curl -f http://localhost:5002; then
+          for i in {1..20}; do
+            if sudo docker exec app-dev curl -f http://localhost:5000; then
               echo "Server is up!"
               break
             else
-              echo "Waiting for server... ($i/10)"
+              echo "Waiting for server... ($i/20)"
               sleep 10
             fi
           done
@@ -45,9 +46,10 @@ jobs:
       # 5️⃣ Run tests
       - name: Run Tests
         run: |
+          export APP_PORT=5000
           python3 testing/test.py
 
-      # 6️⃣ (Optional) Stop containers after testing
+      # 6️⃣ Cleanup containers after testing
       - name: Stop Containers
         if: always()
         run: |
